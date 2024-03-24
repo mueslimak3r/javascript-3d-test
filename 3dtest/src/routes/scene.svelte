@@ -3,10 +3,9 @@
 	import { tweened } from 'svelte/motion'
 	import { quadInOut } from 'svelte/easing'
 	import { T } from '@threlte/core'
-    import { Vector3, CatmullRomCurve3, Color, type Vector3Tuple } from 'three'
+    import { Vector3, Color } from 'three'
 	import { Align, Grid, OrbitControls, MeshLineMaterial, MeshLineGeometry, useTexture } from '@threlte/extras'
     import type { WarsState, Planet, War } from '$lib/types'
-    import { getLines, getRandomColor } from '$lib/line'
 	import { get } from 'svelte/store';
 
     async function fetchJson<T>(url: string): Promise<T> {
@@ -19,19 +18,7 @@
 
     let planets: Planet[] = [];
     let wars: War[] = [];
-    const lines: Vector3[][] = [];
-    let lines2: Vector3[][] = [];
-
-    for (let index = 0; index < 10; index++) {
-        for (let index2 = 0; index2 < 10; index2++) {
-            const points: Vector3[] = []
-            for (let index3 = 0; index3 < 3; index3++) {
-                const point = new Vector3(25 - Math.random() * 50, 25 - Math.random() * 50, 25 - Math.random() * 50)
-                points.push(point)
-            }
-            lines.push(points);
-        }
-    };
+    let lines: Vector3[][] = [];
 
 	onMount(async () => {
         try {
@@ -73,7 +60,7 @@
                     
                     lines3.push(points);
                 }
-                lines2 = lines3;
+                lines = lines3;
             }
         } catch (error) {
             console.error('Failed to initialize wars:', error);
@@ -129,25 +116,24 @@
     const orange = new Color('#fe3d00')
     const purple = new Color('#9800fe')
     console.log('Lines:', lines);
-    console.log('Lines2:', lines2);
-    console.log('scale7', scaleY)
+    console.log('scale', scaleY)
 </script>
 
-<Grid infiniteGrid sectionColor="#4a4b4a" sectionSize={20} cellSize={20} fadeDistance={400} />
+<Grid infiniteGrid sectionColor="#4a4b4a" sectionSize={20} cellSize={20} fadeDistance={2000} />
 
-<T.PerspectiveCamera makeDefault position={[10, 100, 600]} fov={60}>
+<T.PerspectiveCamera makeDefault position={[0, 550, 900]} fov={60}>
 	<OrbitControls enableDamping />
 </T.PerspectiveCamera>
 
 <T.AmbientLight color="#fff" intensity={0.4} />
-<T.DirectionalLight position={[0, 200, 200]} intensity={2} color="#fff" />
-<T.DirectionalLight position={[0, 200, -200]} intensity={2} color="#fff" />
+<T.DirectionalLight position={[0, 200, 200]} intensity={3} color="#fff" />
+<T.DirectionalLight position={[0, 200, -200]} intensity={3} color="#fff" />
 
 <Align auto position.y={40}>
     {#each planets as planet, j}
         {#if planet}
             {@const color = indexToDiverseHexColor(planet.index)}
-            <T.Group position={[6 * planet.position.x, 0, 6 * planet.position.y]} scale.y={$scaleY}>
+            <T.Group position={[6 * planet.position.x, 0, 6 * planet.position.y]} scale.y={1}>
                 <T.Mesh position={[0, 0, 0]}>
                     <T.SphereGeometry args={[12, 12, 12]} />
                     <T.MeshStandardMaterial {color} />
@@ -157,12 +143,11 @@
     {/each}
 </Align>
 
-{#each lines2 as line}
+{#each lines as line}
     <T.Mesh
         position.y={40}
-        scale={$scaleY}
+        scale={1}
     >
-        
         <MeshLineGeometry points={line} />
 
         <MeshLineMaterial
