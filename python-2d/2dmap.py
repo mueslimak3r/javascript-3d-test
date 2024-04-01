@@ -1,7 +1,7 @@
 import pygame
 import math
 import random
-from helldivers import get_wars, get_war_planets
+from helldivers import get_wars, get_war_planets, get_sectors
 import json
 import shapely.geometry
 from shapely.ops import unary_union
@@ -60,7 +60,7 @@ def get_grid_point(angle_radians, radius):
 
 def get_points2(angle_increment, index, radii, rx):
     angle_radians = angle_increment * index
-    start = (0, 0) if rx == 0 else get_grid_point(angle_radians, radii[rx - 1])
+    start = (1.0, 1.0) if rx == 0 else get_grid_point(angle_radians, radii[rx - 1])
     end = get_grid_point(angle_radians, radii[rx])
     return start, end
 
@@ -91,13 +91,35 @@ def generate_arc_points(radius, theta_start_deg, theta_end_deg, arc_length_per_p
     
     return points
 
+def adjust_angle_difference(theta_start, theta_end):
+    # Normalize angles to [0, 2*pi) range
+    theta_start = theta_start % (2 * math.pi)
+    theta_end = theta_end % (2 * math.pi)
 
-def generate_curve_points(p1, p2, center, radius=10):
-    arc_length_per_point = 2
+    # Calculate the shortest path difference
+    diff = theta_end - theta_start
+    if diff < 0:
+        diff += 2 * math.pi  # Adjust if we're going the long way around
+    
+    # Now, choose the direction that results in the shortest arc
+    if diff > math.pi:
+        # The arc is trying to go the long way around; adjust it
+        if theta_end > theta_start:
+            theta_end -= 2 * math.pi
+        else:
+            theta_start -= 2 * math.pi
+
+    return theta_start, theta_end
+
+def generate_curve_points(point1, point2, center, radius=10):
+    p1 = point1
+    p2 = point2
+    arc_length_per_point = 6
     theta_start_rad = math.atan2(p1[1] - center[1], p1[0] - center[0])
     theta_end_rad = math.atan2(p2[1] - center[1], p2[0] - center[0])
-    theta_start_deg = math.degrees(theta_start_rad)
-    theta_end_deg = math.degrees(theta_end_rad)
+    theta_start, theta_end = adjust_angle_difference(theta_start_rad, theta_end_rad)
+    theta_start_deg = math.degrees(theta_start)
+    theta_end_deg = math.degrees(theta_end)
     points = generate_arc_points(radius, theta_start_deg, theta_end_deg, arc_length_per_point)
     return points
 
@@ -122,6 +144,16 @@ def generate_grid_points(intersections, radii):
             #print('adjacent start %s end %s' % (adjacent_start, adjacent_end))
             tmpcenter = (0, 0)
             polygon_points = []
+            #polygon_points.append(adjacent_start)
+            polygon_points.append(adjacent_start)
+            polygon_points.append(adjacent_end)
+            polygon_points.append(end)
+            polygon_points.append(start)
+            polygon_points.append(adjacent_start)
+            #polygon_points.append(end)
+            #polygon_points.append(start)
+            #polygon_points.append(adjacent_start)
+            '''
             if angle_increment * i >= angle_increment * adjacent_index:
                 polygon_points.append(adjacent_start)
                 polygon_points.append(adjacent_end)
@@ -142,6 +174,7 @@ def generate_grid_points(intersections, radii):
                 polygon_points.append(adjacent_start)
                 polygon_points.extend(generate_curve_points(adjacent_start, start, tmpcenter, radii[rx - 1] if rx > 0 else 0.0))
                 polygon_points.append(start)
+            '''
             #polygon_points.append(adjacent_end)
             
             #polygon_points.append(end)
@@ -197,6 +230,7 @@ if not wars:
     exit(1)
 current_war = wars['current']
 planets = get_war_planets(current_war)
+sector_map = get_sectors()
 lines = []
 scaling_factor = 4
 planet_size = 4
@@ -223,7 +257,7 @@ for p in planets:
     if printed_points < 10:
         print(planet_point)
         printed_points += 1
-    planet_points.append(planet_point)
+    planet_points.append((planet_point, int(p['index']), str(p['name'])))
     for l in p['waypoints']:
         startx = center[0] - (-p['position']['x'] * scaling_factor)
         starty = center[1] - (y * scaling_factor)
@@ -251,17 +285,31 @@ print('PLANETS')
 sectors = {}
 
 for px in range(len(planet_points)):
-    p = planet_points[px]
+    p, planet_index, pname = planet_points[px]
     found = False
     tol = 1e-4
-    for s in sections:
-        if sections[s]['polygon'].contains(p):
+    sector = None
+    for sm in sector_map.keys():
+        if planet_index in sector_map[sm]:
+            sector = sm
+            break
+    if not sector:
+        print('no sector found for planet %s %s' % (pname, planet_index))
+        continue
+    for sk in list(sections.keys()):
+        s = sections[sk]
+        #print(s['polygon'].is_valid)
+        if s['polygon'].is_valid == False:
+            print('invalid')
+            print(s)
+        #if make_valid(p).within(make_valid(sections[s]['polygon'])): #.contains(p):
         #if p.within(sections[s]['polygon']):
-            sections[s]['show'] = True
-            sector = planets[px]['sector']
+        if p.within(make_valid(s['polygon'])):
+            print('planet %s %s is in sector %s %s' % (pname, p, sector, s['polygon']))
+            s['show'] = True
             if sector not in sectors:
                 print('adding sector %s' % sector)
-                sectors[sector] = make_union_polygon([make_valid(sections[s]['polygon'])])
+                sectors[sector] = make_union_polygon([make_valid(s['polygon'])])
                 #sectors[sector] = shapely.normalize(make_valid(sections[s]['polygon'].simplify(0.1).buffer(tol).buffer(-tol)))
                 #sectors[sector] =  shapely.normalize(make_valid(sections[s]['polygon']))
             #else:
@@ -269,15 +317,15 @@ for px in range(len(planet_points)):
             
             else:
                 try:
-                    sectors[sector] = make_union_polygon([sectors[sector], make_valid(sections[s]['polygon'])])
+                    sectors[sector] = make_union_polygon([sectors[sector], make_valid(s['polygon'])])
                 except Exception as e:
                     print(e)
                     print('failed to union')
                     print('sector %s' % sector)
-                    print('polygon is valid %s' % make_valid(sections[s]['polygon']).is_valid)
-                    print('polygon %s' % sections[s]['polygon'])
+                    print('polygon is valid %s' % make_valid(s['polygon']).is_valid)
+                    print('polygon %s' % s['polygon'])
                     print('polygon %s' % sectors[sector])
-                    print('corrected polygon %s' % make_valid(sections[s]['polygon']))
+                    print('corrected polygon %s' % make_valid(s['polygon']))
                     exit(1)
             
             found = True
@@ -286,6 +334,14 @@ for px in range(len(planet_points)):
     if not found:
         print('not found')
         print(p)
+
+printed_sections = 0
+print('PLANETS')
+for s in planet_points:
+    if printed_sections < 25:
+        print(s)
+        printed_sections += 1
+print('END PLANETS')
 '''
 sectors = {}
 
@@ -318,23 +374,25 @@ for i in range(len(circles) + len(list(sections.keys()))):
             break
 #print(gridlines)
 index = 0
-screen.fill((255, 255, 255))
+screen.fill((0, 0, 0))
+#screen.fill((0, 0, 0))
+pygame.draw.circle(screen, (194, 194, 194), (cx, cy), r)
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
     if should_draw:
-        screen.fill((0, 0, 0))
+        #screen.fill((0, 0, 0))
         #screen.fill((255, 255, 255))
         #pygame.draw.circle(screen, (0, 0, 0), (cx, cy), r)
         #for i in range(len(circles)):
             #print(circles[i])
             #pygame.draw.circle(screen, colors[i], center, circles[i])
 
-        #for p in planets_rects:
-        #    pygame.draw.circle(screen, (255, 0, 0), p, planet_size)
-        #for l in lines:
-        #    pygame.draw.line(screen, (255, 255, 255), l[0], l[1], line_size)
+        for p in planets_rects:
+            pygame.draw.circle(screen, (255, 0, 0), p, planet_size)
+        for l in lines:
+            pygame.draw.line(screen, (0, 0, 0), l[0], l[1], line_size)
         
         sectionkeys = list(sections.keys())
         sectorkeys = list(sectors.keys())
@@ -369,15 +427,20 @@ while running:
                               points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
                               width=5)
         '''
-        for lx in range(len(sectorkeys)):
+
+        
+        #for lx in range(len(sectorkeys)):
+        if index < len(sectorkeys):
+            lx = index
             sectorgeos = sectors[sectorkeys[lx]]
+            print(sectorkeys[lx])
             if type(sectorgeos) is shapely.geometry.Polygon:
                 sectioncoords = sectorgeos.exterior.coords
                 pygame.draw.lines(screen, colors[len(circles) + lx],
                               closed=True,
                               #points=sectioncoords,
                               points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
-                              width=1)
+                              width=2)
             else:
                 for poly in sectorgeos.geoms:
                     sectioncoords = poly.exterior.coords
@@ -385,15 +448,20 @@ while running:
                                 closed=True,
                                 #points=sectioncoords,
                                 points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
-                                width=1)
-        sleep(0.02)
+                                width=2)
+            index += 1
+        else:
+            should_draw = False
+        sleep(0.25)
         pygame.display.flip()
-        should_draw = False
+        #should_draw = False
         '''
         if should_draw == False:
             pygame.display.flip()
             continue
         for lx2 in range(len(sectionkeys)):
+        #if index < len(sectionkeys):
+            #lx2 = index
             baseobj = sections[sectionkeys[lx2]]
             sectioncoords = baseobj['polygon'].exterior.coords
             sectioncoords = baseobj['polygon'].exterior.coords
@@ -402,9 +470,14 @@ while running:
                                 (center[0] - sectioncoords[i][0], center[1] - sectioncoords[i][1]),
                                 (center[0] - sectioncoords[i + 1][0], center[1] - sectioncoords[i + 1][1]),
                                 5)
-        should_draw = False
+            index += 1
+            #sleep(0.25)
+        else:
+            should_draw = False
+        #should_draw = False
         pygame.display.flip()
         '''
+
         '''
         baseobj = sections[sectionkeys[lx]]
         #print(baseobj['show'])

@@ -5,6 +5,7 @@ from requests.exceptions import SSLError, ConnectionError
 from os import environ as env
 
 API_URL = 'http://appserver-docker1.home.arpa:4000/api/' if not 'API_URL' in env else env['API_URL']
+SECTORS_URL = 'https://raw.githubusercontent.com/hellhub-collective/api/main/src/static/json/sectors.json'
 
 api = {
     "wars": {
@@ -70,6 +71,15 @@ def get_war_planets(war_id):
     query['url'][0] = str(war_id)    
     events = api_call(query)
     return events['content']
+
+def get_sectors():
+    query_parameters = {"downloadformat": "json"}
+    response = requests.get(SECTORS_URL, params=query_parameters)
+    if response.status_code != 200:
+        return {}
+    result = json.loads(response.text)
+    return result
+
 
 if __name__ == "__main__":
     wars = get_wars()
