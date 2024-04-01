@@ -5,7 +5,7 @@ from requests.exceptions import SSLError, ConnectionError
 from os import environ as env
 
 API_URL = 'http://appserver-docker1.home.arpa:4000/api/' if not 'API_URL' in env else env['API_URL']
-SECTORS_URL = 'https://raw.githubusercontent.com/hellhub-collective/api/main/src/static/json/sectors.json'
+SECTORS_URL = 'https://raw.githubusercontent.com/mueslimak3r/api/4126f907a26f3392106d8c9660f1948ac29f7a78/src/static/json/sectors.json'
 
 api = {
     "wars": {

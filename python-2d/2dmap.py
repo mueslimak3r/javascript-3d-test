@@ -200,7 +200,9 @@ def generate_grid_points(intersections, radii):
 def make_union_polygon(poly_list=[]):
     if len(poly_list) == 0:
         return None
-    return unary_union([ p.simplify(tolerance=0.001, preserve_topology=True) for p in poly_list ]).buffer(0)
+    result = unary_union([ p.simplify(tolerance=0.001, preserve_topology=True) for p in poly_list ]).buffer(0)
+    return result
+    #return result if type(result) is shapely.geometry.Polygon else unary_union(shapely.delaunay_triangles(result, tolerance=0.05, only_edges=True).geoms)
     '''
     buffer_size = 0.00001
     buffered_poly = []
@@ -213,11 +215,12 @@ def make_union_polygon(poly_list=[]):
         union_poly = unary_union(buffered_poly)
 
     # Step 2: Convex Hull (if you want to ensure all gaps are filled)
-    convex_hull_poly = union_poly.buffer(-buffer_size).convex_hull
+    #convex_hull_poly = union_poly.buffer(-buffer_size).convex_hull
 
     #unbuffered_poly = convex_hull_poly.buffer(-buffer_size)
-    return convex_hull_poly
+    return union_poly.buffer(-buffer_size) #convex_hull_poly
     '''
+    
 
 pygame.init()
 
@@ -302,7 +305,7 @@ for px in range(len(planet_points)):
             print('invalid')
             print(s)
         if p.within(make_valid(s['polygon'])):
-            print('planet %s %s is in sector %s %s' % (pname, p, sector, s['polygon']))
+            print('planet %s [%s] %s is in sector %s %s' % (pname, planet_index, p, sector, s['polygon']))
             s['show'] = True
             if sector not in sectors:
                 print('adding sector %s' % sector)
@@ -321,7 +324,6 @@ for px in range(len(planet_points)):
                     exit(1)
             
             found = True
-            #print('showing %s' % s)
             break
     if not found:
         print('not found')
@@ -346,13 +348,10 @@ for i in range(len(circles) + len(list(sections.keys()))):
                 unique = False
                 break
         if unique:
-            #print('unique')
             colors.append(newcolor)
             break
-#print(gridlines)
 index = 0
 screen.fill((0, 0, 0))
-#screen.fill((0, 0, 0))
 pygame.draw.circle(screen, (194, 194, 194), (cx, cy), r)
 while running:
     for event in pygame.event.get():
@@ -370,6 +369,7 @@ while running:
             lx = index
             sectorgeos = sectors[sectorkeys[lx]]
             print(sectorkeys[lx])
+            
             if type(sectorgeos) is shapely.geometry.Polygon:
                 sectioncoords = sectorgeos.exterior.coords
                 pygame.draw.lines(screen, (0, 0, 0),
@@ -377,11 +377,21 @@ while running:
                               #points=sectioncoords,
                               points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
                               width=2)
-            else:
+            
+            if type(sectorgeos) is shapely.geometry.MultiPolygon:
                 for poly in sectorgeos.geoms:
                     sectioncoords = poly.exterior.coords
                     pygame.draw.lines(screen, (0, 0, 0),
                                 closed=True,
+                                #points=sectioncoords,
+                                points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
+                                width=2)
+            
+            if type(sectorgeos) is shapely.geometry.LineString:
+                print('line')
+                sectioncoords = sectorgeos.coords
+                pygame.draw.lines(screen, (0, 0, 0),
+                                closed=False,
                                 #points=sectioncoords,
                                 points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
                                 width=2)
@@ -435,5 +445,4 @@ while running:
             #sleep(0.02)
             should_draw = False
         '''
-        
 pygame.quit()
