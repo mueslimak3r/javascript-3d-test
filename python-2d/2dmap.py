@@ -265,14 +265,14 @@ for p in planets:
         endy = center[1] - (planets[l]['position']['y'] * scaling_factor)
         lines.append(((startx, starty), (endx, endy)))
 
-radii = furthest if furthest % 10 == 0 else furthest + 10
+radii = furthest if furthest % 10 == 0 else furthest + (10 - furthest % 10)
 units_from_center = int(radii / 10)
 units_around = 24
 
 sections = {}
 circles = generate_concentric_circles_radii(radii * scaling_factor * 2, units_from_center)
 gridlines, sections = generate_grid_points(units_around, circles)
-cx, cy, r = center[0], center[1], radii * scaling_factor #furthest * scaling_factor
+cx, cy, r = center[0], center[1], radii * scaling_factor
 print(furthest * scaling_factor)
 printed_sections = 0
 print('POLYGONS')
@@ -298,23 +298,15 @@ for px in range(len(planet_points)):
         continue
     for sk in list(sections.keys()):
         s = sections[sk]
-        #print(s['polygon'].is_valid)
         if s['polygon'].is_valid == False:
             print('invalid')
             print(s)
-        #if make_valid(p).within(make_valid(sections[s]['polygon'])): #.contains(p):
-        #if p.within(sections[s]['polygon']):
         if p.within(make_valid(s['polygon'])):
             print('planet %s %s is in sector %s %s' % (pname, p, sector, s['polygon']))
             s['show'] = True
             if sector not in sectors:
                 print('adding sector %s' % sector)
                 sectors[sector] = make_union_polygon([make_valid(s['polygon'])])
-                #sectors[sector] = shapely.normalize(make_valid(sections[s]['polygon'].simplify(0.1).buffer(tol).buffer(-tol)))
-                #sectors[sector] =  shapely.normalize(make_valid(sections[s]['polygon']))
-            #else:
-            #    sectors[sector].append(make_union_polygon([make_valid(sections[s]['polygon'])]))
-            
             else:
                 try:
                     sectors[sector] = make_union_polygon([sectors[sector], make_valid(s['polygon'])])
@@ -342,22 +334,7 @@ for s in planet_points:
         print(s)
         printed_sections += 1
 print('END PLANETS')
-'''
-sectors = {}
 
-for sectorkey in tmpsectors.keys():
-    print('making union of %s polygons' % len(tmpsectors[sectorkey]))
-    union = unary_union(tmpsectors[sectorkey])
-    sectors[sectorkey] = unary_union(union)
-    #sectors[sectorkey] = unary_union(tmpsectors[sectorkey])
-'''
-    #print(p)
-#print(json.dumps(sections, indent=4))
-#gridlines = generate_circle_lines(furthest * scaling_factor, 24, center, scaling_factor)
-
-'''
-absolute garbage code
-'''
 colors = []
 for i in range(len(circles) + len(list(sections.keys()))):
     #print(i)
@@ -382,13 +359,6 @@ while running:
         if event.type == pygame.QUIT:
             running = False
     if should_draw:
-        #screen.fill((0, 0, 0))
-        #screen.fill((255, 255, 255))
-        #pygame.draw.circle(screen, (0, 0, 0), (cx, cy), r)
-        #for i in range(len(circles)):
-            #print(circles[i])
-            #pygame.draw.circle(screen, colors[i], center, circles[i])
-
         for p in planets_rects:
             pygame.draw.circle(screen, (255, 0, 0), p, planet_size)
         for l in lines:
@@ -396,47 +366,13 @@ while running:
         
         sectionkeys = list(sections.keys())
         sectorkeys = list(sectors.keys())
-        #pygame.draw.arc(screen, (255, 255, 255), (50, 50, 100, 100), ((12+90)/57), ((42+90)/57), 1)
-        #pygame.draw.arc(screen, (255, 255, 255), (100, 100, 900, 900), 9, 48, width=10)
-        #if index < len(sectionkeys):
-        #    lx = index
-        #for lx in range(len(sectionkeys)):
-        
-        
-        '''
-        for lx in range(len(sectorkeys)):
-            sector = sectors[sectorkeys[lx]]
-            for poly in sector:
-                sectioncoords = poly.exterior.coords
-                pygame.draw.lines(screen, colors[len(circles) + lx],
-                              closed=True,
-                              #points=sectioncoords,
-                              points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
-                              width=5)
-            #print(type(sectioncoords))
-
-            #sectioncoords = ring.coords
-        '''
-        '''
-        for lx in range(len(sectorkeys)):
-            sector = sectors[sectorkeys[lx]]
-            sectioncoords = sector.exterior.coords
-            pygame.draw.lines(screen, colors[len(circles) + lx],
-                              closed=True,
-                              #points=sectioncoords,
-                              points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
-                              width=5)
-        '''
-
-        
-        #for lx in range(len(sectorkeys)):
         if index < len(sectorkeys):
             lx = index
             sectorgeos = sectors[sectorkeys[lx]]
             print(sectorkeys[lx])
             if type(sectorgeos) is shapely.geometry.Polygon:
                 sectioncoords = sectorgeos.exterior.coords
-                pygame.draw.lines(screen, colors[len(circles) + lx],
+                pygame.draw.lines(screen, (0, 0, 0),
                               closed=True,
                               #points=sectioncoords,
                               points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
@@ -444,7 +380,7 @@ while running:
             else:
                 for poly in sectorgeos.geoms:
                     sectioncoords = poly.exterior.coords
-                    pygame.draw.lines(screen, colors[len(circles) + lx],
+                    pygame.draw.lines(screen, (0, 0, 0),
                                 closed=True,
                                 #points=sectioncoords,
                                 points=[ (center[0] - x, center[1] - y) for x, y in sectioncoords ],
@@ -454,7 +390,6 @@ while running:
             should_draw = False
         sleep(0.25)
         pygame.display.flip()
-        #should_draw = False
         '''
         if should_draw == False:
             pygame.display.flip()
@@ -479,38 +414,26 @@ while running:
         '''
 
         '''
-        baseobj = sections[sectionkeys[lx]]
-        #print(baseobj['show'])
-        obj = baseobj['lines']
-        #if obj[0][0][0] == 0:
-        #    continue
-        if not baseobj['show']:
-            continue
-        sectioncoords = baseobj['polygon'].exterior.coords
-        for i in range(len(sectioncoords) - 1):
+        for lx in range(len(sectionkeys)):
+            baseobj = sections[sectionkeys[lx]]
+            obj = baseobj['lines']
+            if not baseobj['show']:
+                continue
             pygame.draw.line(screen, colors[len(circles) + lx],
-                            (center[0] - sectioncoords[i][0], center[1] - sectioncoords[i][1]),
-                            (center[0] - sectioncoords[i + 1][0], center[1] - sectioncoords[i + 1][1]),
-                            5)
-        index += 1
-        pygame.display.flip()
-        sleep(0.02)
-        should_draw = False
-        continue
-        # print('drawing')
-        #print(obj)
-        pygame.draw.line(screen, colors[len(circles) + lx],
-                            (center[0] - obj[0][0][0], center[1] - obj[0][0][1]),
-                            (center[0] - obj[0][1][0], center[1] - obj[0][1][1]),
-                            5)
-        pygame.draw.line(screen, colors[len(circles) + lx],
-                            (center[0] - obj[1][0][0], center[1] - obj[1][0][1]),
-                            (center[0] - obj[1][1][0], center[1] - obj[1][1][1]),
-                            5)
-        rect = pygame.Rect(center[0]-obj[2][2], center[1]-obj[2][2], obj[2][2]*2, obj[2][2]*2)
-        pygame.draw.arc(screen, colors[len(circles) + lx], rect, obj[2][3][0], obj[2][3][1], 2)
-        rect = pygame.Rect(center[0]-obj[3][2], center[1]-obj[3][2], obj[3][2]*2, obj[3][2]*2)
-        pygame.draw.arc(screen, colors[len(circles) + lx], rect, obj[3][3][0], obj[3][3][1], 2)
+                                (center[0] - obj[0][0][0], center[1] - obj[0][0][1]),
+                                (center[0] - obj[0][1][0], center[1] - obj[0][1][1]),
+                                5)
+            pygame.draw.line(screen, colors[len(circles) + lx],
+                                (center[0] - obj[1][0][0], center[1] - obj[1][0][1]),
+                                (center[0] - obj[1][1][0], center[1] - obj[1][1][1]),
+                                5)
+            rect = pygame.Rect(center[0]-obj[2][2], center[1]-obj[2][2], obj[2][2]*2, obj[2][2]*2)
+            pygame.draw.arc(screen, colors[len(circles) + lx], rect, obj[2][3][0], obj[2][3][1], 2)
+            rect = pygame.Rect(center[0]-obj[3][2], center[1]-obj[3][2], obj[3][2]*2, obj[3][2]*2)
+            pygame.draw.arc(screen, colors[len(circles) + lx], rect, obj[3][3][0], obj[3][3][1], 2)
+            pygame.display.flip()
+            #sleep(0.02)
+            should_draw = False
         '''
         
 pygame.quit()
